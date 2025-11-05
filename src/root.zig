@@ -13,3 +13,7 @@ pub fn bufferedPrint() !void {
 
     try stdout.flush(); // Don't forget to flush!
 }
+
+test {
+    std.testing.refAllDecls(@import("math.zig"));
+}
