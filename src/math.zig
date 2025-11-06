@@ -1,53 +1,64 @@
 pub fn DataType(
+    comptime scalarType: type,
     comptime valueType: type,
     comptime addValue: fn (valueType, valueType) valueType,
-    comptime valueProduct: fn (valueType, f64) valueType,
+    comptime valueScale: fn (valueType, scalarType) valueType,
 ) type {
     return struct {
+        const scalar: type = scalarType;
         const value: type = valueType;
 
         pub fn add(self: value, other: value) value {
             return addValue(self, other);
         }
 
-        pub fn scale(self: value, factor: f64) value {
-            return valueProduct(self, factor);
+        pub fn scale(self: value, factor: scalarType) value {
+            return valueScale(self, factor);
         }
     };
 }
 
-pub fn SystemType(comptime T: type) type {
-    comptime {
-        if (!@hasDecl(T, "value"))
-            @compileError("Type T must conform to DataType interface (missing type decls)");
-
-        if (!@hasDecl(T, "add") or !@hasDecl(T, "scale"))
-            @compileError("Type T must conform to DataType interface (missing function decls)");
-
-        // Optional: verify exact signatures
-        if (@TypeOf(T.add) != fn (T.value, T.value) T.value)
-            @compileError("T.add must be fn (T.value, T.value) T.value");
-        if (@TypeOf(T.scale) != fn (T.value, f64) T.value)
-            @compileError("T.scale must be fn (T.value, f64) T.value");
-    }
+pub fn SystemType(
+    comptime scalarType: type,
+    comptime valueType: type,
+    comptime infoType: type,
+    comptime addValue: fn (valueType, valueType) valueType,
+    comptime valueScale: fn (valueType, scalarType) valueType,
+) type {
+    const expectedFnType = comptime blk: {
+        if (infoType == void) {
+            break :blk *const fn (t: scalarType, x: valueType) valueType;
+        } else {
+            break :blk *const fn (t: scalarType, x: valueType, info: *const infoType) valueType;
+        }
+    };
 
     return struct {
-        t: f64,
-        x: T.value,
-        f: *const fn (t: f64, x: T.value) T.value,
+        t: scalarType,
+        x: valueType,
+        f: expectedFnType,
+        info: infoType = undefined,
+
+        fn func(self: *@This(), t: scalarType, x: valueType) valueType {
+            if (infoType == void) {
+                return self.f(t, x);
+            } else {
+                return self.f(t, x, &self.info);
+            }
+        }
 
         /// Integrate the system forward by dt using the RK4 method.
-        pub fn integrate(self: *@This(), dt: f64) void {
+        pub fn integrate(self: *@This(), dt: scalarType) void {
             const dt_2 = dt / 2.0;
 
-            const k1: T.value = self.f(self.t, self.x); // f(t_n, x_n)
-            const k2: T.value = self.f(self.t + dt_2, T.add(self.x, T.scale(k1, dt_2))); // f(t_n + dt/2, x_n + dt/2 * k1)
-            const k3: T.value = self.f(self.t + dt_2, T.add(self.x, T.scale(k2, dt_2))); // f(t_n + dt/2, x_n + dt/2 * k2)
-            const k4: T.value = self.f(self.t + dt, T.add(self.x, T.scale(k3, dt))); // f(t_n + dt, x_n + dt * k3)
+            const k1: valueType = self.func(self.t, self.x); // f(t_n, x_n)
+            const k2: valueType = self.func(self.t + dt_2, addValue(self.x, valueScale(k1, dt_2))); // f(t_n + dt/2, x_n + dt/2 * k1)
+            const k3: valueType = self.func(self.t + dt_2, addValue(self.x, valueScale(k2, dt_2))); // f(t_n + dt/2, x_n + dt/2 * k2)
+            const k4: valueType = self.func(self.t + dt, addValue(self.x, valueScale(k3, dt))); // f(t_n + dt, x_n + dt * k3)
 
-            self.x = T.add(self.x, T.scale(T.add(
-                T.add(k1, T.scale(k2, 2.0)),
-                T.add(T.scale(k3, 2.0), k4),
+            self.x = addValue(self.x, valueScale(addValue(
+                addValue(k1, valueScale(k2, 2.0)),
+                addValue(valueScale(k3, 2.0), k4),
             ), dt / 6.0)); // x_{n+1} = x_n + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
 
             self.t += dt; // t_{n+1} = t_n + dt
@@ -77,9 +88,7 @@ test "gravity velocity" {
         }
     };
 
-    const dataType = DataType(f64, fns.addValue, fns.scalarProduct);
-
-    const systemType = SystemType(dataType);
+    const systemType = SystemType(f64, f64, void, fns.addValue, fns.scalarProduct);
 
     var sys = systemType{
         .t = 0,
@@ -110,7 +119,6 @@ test "gravity position + velocity" {
     // and define the system's derivative function accordingly.
 
     const DT = 0.1;
-    const g = -9.81;
 
     const Vector = struct {
         pos: f64,
@@ -132,7 +140,7 @@ test "gravity position + velocity" {
     };
 
     const data = struct {
-        pub fn f(t: f64, x: Vector) Vector {
+        pub fn f(t: f64, x: Vector, g: f64) Vector {
             _ = t;
             return Vector{
                 .pos = x.vel,
@@ -141,8 +149,7 @@ test "gravity position + velocity" {
         }
     };
 
-    const dataType = DataType(Vector, Vector.add, Vector.scale);
-    const systemType = SystemType(dataType);
+    const systemType = SystemType(f64, Vector, f64, Vector.add, Vector.scale);
 
     var sys = systemType{
         .f = data.f,
@@ -151,6 +158,7 @@ test "gravity position + velocity" {
             .pos = 0,
             .vel = 0,
         },
+        .info = -9.81,
     };
 
     var time: f64 = 0;
@@ -162,8 +170,8 @@ test "gravity position + velocity" {
     std.debug.print("Final position: {d}\n", .{sys.x.pos});
     std.debug.print("Final velocity: {d}\n", .{sys.x.vel});
 
-    const expected_velocity = g * sys.t; // g*t
-    const expected_position = 0.5 * g * sys.t * sys.t; // 0.5*g*t^2
+    const expected_velocity = sys.info * sys.t; // g*t
+    const expected_position = 0.5 * sys.info * sys.t * sys.t; // 0.5*g*t^2
     const epsilon = 0.01;
 
     std.debug.print("Expected velocity: {d}\n", .{expected_velocity});
