@@ -1,23 +1,3 @@
-pub fn DataType(
-    comptime scalarType: type,
-    comptime valueType: type,
-    comptime addValue: fn (valueType, valueType) valueType,
-    comptime valueScale: fn (valueType, scalarType) valueType,
-) type {
-    return struct {
-        const scalar: type = scalarType;
-        const value: type = valueType;
-
-        pub fn add(self: value, other: value) value {
-            return addValue(self, other);
-        }
-
-        pub fn scale(self: value, factor: scalarType) value {
-            return valueScale(self, factor);
-        }
-    };
-}
-
 pub fn SystemType(
     comptime scalarType: type,
     comptime valueType: type,
@@ -25,21 +5,26 @@ pub fn SystemType(
     comptime addValue: fn (valueType, valueType) valueType,
     comptime valueScale: fn (valueType, scalarType) valueType,
 ) type {
+    comptime {
+        if (@typeInfo(scalarType) != .float)
+            @compileError("scalarType must be a float");
+    }
+
     const expectedFnType = comptime blk: {
         if (infoType == void) {
-            break :blk *const fn (t: scalarType, x: valueType) valueType;
+            break :blk fn (t: scalarType, x: valueType) valueType;
         } else {
-            break :blk *const fn (t: scalarType, x: valueType, info: *const infoType) valueType;
+            break :blk fn (t: scalarType, x: valueType, info: *const infoType) valueType;
         }
     };
 
     return struct {
         t: scalarType,
         x: valueType,
-        f: expectedFnType,
+        f: *const expectedFnType,
         info: infoType = undefined,
 
-        fn func(self: *@This(), t: scalarType, x: valueType) valueType {
+        inline fn func(self: *@This(), t: scalarType, x: valueType) valueType {
             if (infoType == void) {
                 return self.f(t, x);
             } else {
@@ -49,7 +34,10 @@ pub fn SystemType(
 
         /// Integrate the system forward by dt using the RK4 method.
         pub fn integrate(self: *@This(), dt: scalarType) void {
-            const dt_2 = dt / 2.0;
+            const two = comptime @as(scalarType, 2);
+            const six = comptime @as(scalarType, 6);
+
+            const dt_2 = dt / two;
 
             const k1: valueType = self.func(self.t, self.x); // f(t_n, x_n)
             const k2: valueType = self.func(self.t + dt_2, addValue(self.x, valueScale(k1, dt_2))); // f(t_n + dt/2, x_n + dt/2 * k1)
@@ -57,9 +45,9 @@ pub fn SystemType(
             const k4: valueType = self.func(self.t + dt, addValue(self.x, valueScale(k3, dt))); // f(t_n + dt, x_n + dt * k3)
 
             self.x = addValue(self.x, valueScale(addValue(
-                addValue(k1, valueScale(k2, 2.0)),
-                addValue(valueScale(k3, 2.0), k4),
-            ), dt / 6.0)); // x_{n+1} = x_n + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
+                addValue(k1, valueScale(k2, two)),
+                addValue(valueScale(k3, two), k4),
+            ), dt / six)); // x_{n+1} = x_n + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
 
             self.t += dt; // t_{n+1} = t_n + dt
         }
@@ -140,11 +128,11 @@ test "gravity position + velocity" {
     };
 
     const data = struct {
-        pub fn f(t: f64, x: Vector, g: f64) Vector {
+        pub fn f(t: f64, x: Vector, g: *const f64) Vector {
             _ = t;
             return Vector{
                 .pos = x.vel,
-                .vel = g,
+                .vel = g.*,
             };
         }
     };

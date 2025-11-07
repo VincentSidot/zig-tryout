@@ -14,8 +14,16 @@ pub fn main() !void {
     r.InitWindow(800, 600, "Hello World");
     defer r.CloseWindow();
 
-    var state = try State.init(allocator);
+    r.SetTargetFPS(120);
+
+    var state = try State.init(allocator, null);
     defer state.deinit();
+
+    std.debug.print("Press LEFT MOUSE BUTTON to add particles\n", .{});
+    std.debug.print("Press U to remove the last particle\n", .{});
+    std.debug.print("Press V to toggle velocity rendering\n", .{});
+    std.debug.print("Press P to pause/resume particle updates\n", .{});
+    std.debug.print("Press Q or ESCAPE to quit\n", .{});
 
     while (!r.WindowShouldClose()) {
         if (r.IsKeyPressed(r.KEY_Q) or r.IsKeyPressed(r.KEY_ESCAPE)) {
@@ -32,6 +40,14 @@ pub fn main() !void {
             // Add a particle at mouse position
             const mousePos = r.GetMousePosition();
             try state.addParticle(.{ .pos = mousePos, .velocity = .{} });
+        }
+
+        if (r.IsKeyPressed(r.KEY_V)) {
+            state.toggleRenderVelocity();
+        }
+
+        if (r.IsKeyPressed(r.KEY_P)) {
+            state.toggleUpdateParticles();
         }
 
         r.BeginDrawing();

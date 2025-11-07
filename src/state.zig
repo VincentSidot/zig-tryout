@@ -2,6 +2,7 @@ const std = @import("std");
 const r = @import("raylib.zig").c;
 const particleZig = @import("particle.zig");
 
+const World = @import("world.zig").World;
 const Particle = particleZig.Particle(.{});
 pub const ParticleConfig = particleZig.ParticleInit;
 
@@ -13,16 +14,31 @@ pub const State = struct {
     lastTickTime: f64 = 0,
 
     // Simulation parameters
-    gravity: r.Vector2 = r.Vector2{ .x = 0, .y = 9.81 * 10 },
+    gravity: r.Vector2 = r.Vector2{ .x = 0, .y = 9.81 },
+
+    // Control flags
+    shouldRenderVelocity: bool = false,
+    shouldUpdateParticles: bool = true,
+
+    // World
+    world: World = .{},
 
     // Allocator
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator) !State {
-        return State{
+    pub fn init(allocator: std.mem.Allocator, world: ?r.Rectangle) !State {
+        var state = State{
             .allocator = allocator,
             .lastFrameTime = r.GetTime(),
         };
+
+        if (world) |w| {
+            state.world = .{
+                .bounds = w,
+            };
+        }
+
+        return state;
     }
 
     pub fn deinit(self: *State) void {
@@ -32,8 +48,16 @@ pub const State = struct {
         self.particles.deinit(self.allocator);
     }
 
+    pub fn toggleRenderVelocity(self: *State) void {
+        self.shouldRenderVelocity = !self.shouldRenderVelocity;
+    }
+
+    pub fn toggleUpdateParticles(self: *State) void {
+        self.shouldUpdateParticles = !self.shouldUpdateParticles;
+    }
+
     pub fn addParticle(self: *State, data: ?ParticleConfig) !void {
-        const particle = Particle.init(&self.gravity, data);
+        const particle = Particle.init(&self.world, &self.gravity, data);
 
         std.debug.print("Added particle at position: ({d}, {d})\n", .{ particle.system.x.pos.x, particle.system.x.pos.y });
 
@@ -57,9 +81,11 @@ pub const State = struct {
         defer self.lastTickTime = tickTime;
 
         for (self.particles.items) |*particle| {
-            const collision = particle.tick(dt, &tickTime);
-            particle.handleCollision(collision);
-            particle.render();
+            if (self.shouldUpdateParticles) {
+                const collision = particle.tick(dt, &tickTime);
+                particle.handleCollision(collision);
+            }
+            particle.render(self.shouldRenderVelocity);
         }
     }
 
