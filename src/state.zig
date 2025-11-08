@@ -2,6 +2,7 @@ const std = @import("std");
 const r = @import("raylib.zig").c;
 const particleZig = @import("particle.zig");
 
+const Utils = @import("utils.zig").Utils;
 const World = @import("world.zig").World;
 const Particle = particleZig.Particle(.{});
 pub const ParticleConfig = particleZig.ParticleInit;
@@ -59,7 +60,7 @@ pub const State = struct {
     pub fn addParticle(self: *State, data: ?ParticleConfig) !void {
         const particle = Particle.init(&self.world, &self.gravity, data);
 
-        std.debug.print("Added particle at position: ({d}, {d})\n", .{ particle.system.x.pos.x, particle.system.x.pos.y });
+        Utils.print("Added particle at position: ({d}, {d})\n", .{ particle.system.x.pos.x, particle.system.x.pos.y });
 
         try self.particles.append(self.allocator, particle);
     }

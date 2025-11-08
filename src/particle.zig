@@ -2,34 +2,9 @@ const std = @import("std");
 const r = @import("raylib.zig").c;
 const math = @import("math.zig");
 
+const Utils = @import("utils.zig").Utils;
 const World = @import("world.zig").World;
-
-const Random = struct {
-    fn random() std.Random {
-        const state = struct {
-            var prng = std.Random.DefaultPrng.init(blk: {
-                var seed: u64 = undefined;
-                std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
-                break :blk seed;
-            });
-
-            const rand = prng.random();
-        };
-
-        return state.rand;
-    }
-
-    pub fn randomFloat(min: f32, max: f32) f32 {
-        return Random.random().float(f32) * (max - min) + min;
-    }
-
-    pub fn randomVector2(min: r.Vector2, max: r.Vector2) r.Vector2 {
-        return r.Vector2{
-            .x = Random.random().randomFloat(min.x, max.x),
-            .y = Random.random().randomFloat(min.y, max.y),
-        };
-    }
-};
+const Random = @import("rand.zig").Random;
 
 const ColorMap = [_]r.Color{
     r.RED,
@@ -100,11 +75,11 @@ fn updateParticleSystem(t: f32, data: ParticleData, info: *const ParticleInfo) P
 }
 
 pub const ParticleConfig = struct {
-    min_radius: f32 = 0.25,
-    max_radius: f32 = 1.0,
+    min_radius: f32 = 0.05,
+    max_radius: f32 = 0.15,
 
-    min_velocity: f32 = -5.0,
-    max_velocity: f32 = 5.0,
+    min_velocity: f32 = -0.2,
+    max_velocity: f32 = 0.1,
 };
 
 /// A Particle in the simulation
@@ -186,7 +161,7 @@ pub fn Particle(comptime config: ParticleConfig) type {
             }
 
             if (d.pos) |pos| {
-                particle_data.pos = pos;
+                particle_data.pos = world.locationFromPixelsToWorld(pos);
             } else {
                 particle_data.pos = Random.randomVector2(
                     r.Vector2Add(world.min(), .{ .x = particle_info.radius, .y = particle_info.radius }),
@@ -196,7 +171,7 @@ pub fn Particle(comptime config: ParticleConfig) type {
 
             if (d.velocity) |velocity| {
                 // Convert velocity from pixels to world units (choseen arbitrarily to work on width)
-                particle_data.velocity = world.vectorFromWorldToPixels(velocity);
+                particle_data.velocity = world.vectorFromPixelsToWorld(velocity);
             } else {
                 particle_data.velocity = Random.randomVector2(
                     .{ .x = Self.MIN_VELOCITY, .y = Self.MIN_VELOCITY },
@@ -209,7 +184,8 @@ pub fn Particle(comptime config: ParticleConfig) type {
             // const area = std.math.pi * particle_info.radius * particle_info.radius;
 
             // particle_info.quad_drag_coeff = 0.5 * rho * Cd * area;
-            particle_info.linear_drag = 0.1; // Example linear drag coefficient
+
+            particle_info.linear_drag = 1.5e-7; // Example linear drag coefficient
 
             particle_info.mass = (4.0 / 3.0) * std.math.pi * std.math.pow(f32, particle_info.radius, 3) * 0.001; // assuming density of 1000 kg/m^3
 
@@ -237,6 +213,8 @@ pub fn Particle(comptime config: ParticleConfig) type {
         }
 
         pub fn render(self: *const Self, shouldRenderVelocity: bool) void {
+            Utils.println("Rendering particle ({d}s) {any}", .{ self.system.t, self.system.x });
+
             const color = if (self.selected) Self.selectedColor else Self.unselectedColor;
 
             self.world.drawCircle(self.system.x.pos, self.system.info.radius, color);
@@ -275,10 +253,6 @@ pub fn Particle(comptime config: ParticleConfig) type {
             }
         }
 
-        pub fn debugPrint(self: *const Self) void {
-            std.debug.print("Particle at position: ({d}, {d}) with velocity: ({d}, {d}) and radius: {d}\n", .{ self.system.x.pos.x, self.system.x.pos.y, self.system.x.velocity.x, self.system.x.velocity.y, self.system.info.radius });
-        }
-
         pub fn tick(self: *Self, dt: f32, tickTime: *f64) Self.ParticleCollisionType {
             const start = r.GetTime();
             defer {
@@ -289,7 +263,6 @@ pub fn Particle(comptime config: ParticleConfig) type {
             self.system.integrate(dt);
 
             const collision = self.clampPosition();
-            // collision.debugPrint(true);
 
             return collision;
         }

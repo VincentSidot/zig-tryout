@@ -1,3 +1,5 @@
+const Utils = @import("utils.zig").Utils;
+
 pub fn SystemType(
     comptime scalarType: type,
     comptime valueType: type,
@@ -89,17 +91,17 @@ test "gravity velocity" {
         sys.integrate(DT);
     }
 
-    std.debug.print("Final time: {d}\n", .{sys.t});
-    std.debug.print("Final velocity: {d}\n", .{sys.x});
+    Utils.print("Final time: {d}\n", .{sys.t});
+    Utils.print("Final velocity: {d}\n", .{sys.x});
 
     const expected_velocity = g * sys.t; // g*t
     const epsilon = 0.01;
 
-    std.debug.print("Expected velocity: {d}\n", .{expected_velocity});
+    Utils.print("Expected velocity: {d}\n", .{expected_velocity});
 
     try std.testing.expect(std.math.approxEqAbs(f64, sys.x, expected_velocity, epsilon));
 
-    std.debug.print("Test passed!\n", .{});
+    Utils.print("Test passed!\n", .{});
 }
 
 test "gravity position + velocity" {
@@ -154,19 +156,19 @@ test "gravity position + velocity" {
         sys.integrate(DT);
     }
 
-    std.debug.print("Final time: {d}\n", .{sys.t});
-    std.debug.print("Final position: {d}\n", .{sys.x.pos});
-    std.debug.print("Final velocity: {d}\n", .{sys.x.vel});
+    Utils.print("Final time: {d}\n", .{sys.t});
+    Utils.print("Final position: {d}\n", .{sys.x.pos});
+    Utils.print("Final velocity: {d}\n", .{sys.x.vel});
 
     const expected_velocity = sys.info * sys.t; // g*t
     const expected_position = 0.5 * sys.info * sys.t * sys.t; // 0.5*g*t^2
     const epsilon = 0.01;
 
-    std.debug.print("Expected velocity: {d}\n", .{expected_velocity});
-    std.debug.print("Expected position: {d}\n", .{expected_position});
+    Utils.print("Expected velocity: {d}\n", .{expected_velocity});
+    Utils.print("Expected position: {d}\n", .{expected_position});
 
     try std.testing.expect(std.math.approxEqAbs(f64, sys.x.vel, expected_velocity, epsilon));
     try std.testing.expect(std.math.approxEqAbs(f64, sys.x.pos, expected_position, epsilon));
 
-    std.debug.print("Test passed!\n", .{});
+    Utils.print("Test passed!\n", .{});
 }

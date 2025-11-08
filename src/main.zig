@@ -2,8 +2,14 @@ const std = @import("std");
 const r = @import("raylib.zig").c;
 const stateZig = @import("state.zig");
 const particle = @import("particle.zig");
+const Utils = @import("utils.zig").Utils;
 
 const State = stateZig.State;
+
+const Constants = struct {
+    const window_width: c_int = 800;
+    const window_height: c_int = 800;
+};
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -11,7 +17,7 @@ pub fn main() !void {
 
     r.SetRandomSeed(42069);
 
-    r.InitWindow(800, 600, "Hello World");
+    r.InitWindow(Constants.window_width, Constants.window_height, "Hello World");
     defer r.CloseWindow();
 
     r.SetTargetFPS(120);
@@ -19,11 +25,11 @@ pub fn main() !void {
     var state = try State.init(allocator, null);
     defer state.deinit();
 
-    std.debug.print("Press LEFT MOUSE BUTTON to add particles\n", .{});
-    std.debug.print("Press U to remove the last particle\n", .{});
-    std.debug.print("Press V to toggle velocity rendering\n", .{});
-    std.debug.print("Press P to pause/resume particle updates\n", .{});
-    std.debug.print("Press Q or ESCAPE to quit\n", .{});
+    Utils.print("Press LEFT MOUSE BUTTON to add particles\n", .{});
+    Utils.print("Press U to remove the last particle\n", .{});
+    Utils.print("Press V to toggle velocity rendering\n", .{});
+    Utils.print("Press P to pause/resume particle updates\n", .{});
+    Utils.print("Press Q or ESCAPE to quit\n", .{});
 
     while (!r.WindowShouldClose()) {
         if (r.IsKeyPressed(r.KEY_Q) or r.IsKeyPressed(r.KEY_ESCAPE)) {

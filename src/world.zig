@@ -1,5 +1,7 @@
 const r = @import("raylib.zig").c;
 
+const Utils = @import("utils.zig").Utils;
+
 pub const World = struct {
     bounds: r.Rectangle = .{
         .x = 0,
@@ -149,6 +151,30 @@ pub const World = struct {
         };
     }
 
+    pub fn vectorGetX(T: anytype, vec: r.Vector2) T {
+        switch (@typeInfo(T)) {
+            .int => {
+                return @as(T, @intFromFloat(vec.x));
+            },
+            .float => {
+                return @as(T, @floatCast(vec.x));
+            },
+            else => @compileError("Unsupported type for vectorGetX"),
+        }
+    }
+
+    pub fn vectorGetY(T: anytype, vec: r.Vector2) T {
+        switch (@typeInfo(T)) {
+            .int => {
+                return @as(T, @intFromFloat(vec.y));
+            },
+            .float => {
+                return @as(T, @floatCast(vec.y));
+            },
+            else => @compileError("Unsupported type for vectorGetY"),
+        }
+    }
+
     // Draw primitive shapes in the world coordinates
 
     pub fn drawLine(self: *const World, start: r.Vector2, end: r.Vector2, color: r.Color) void {
@@ -161,6 +187,12 @@ pub const World = struct {
         const pixelCenter = self.locationFromWorldToPixels(center);
         const pixelRadiusWidth = self.distanceFromWorldToPixel(radius, true);
         const pixelRadiusHeight = self.distanceFromWorldToPixel(radius, false);
-        r.DrawEllipseLinesV(pixelCenter, pixelRadiusHeight, pixelRadiusWidth, color);
+
+        Utils.println("Pixels Center: {any}, radius: ({d}, {d})", .{ pixelCenter, pixelRadiusWidth, pixelRadiusHeight });
+
+        const centerX = World.vectorGetX(c_int, pixelCenter);
+        const centerY = World.vectorGetY(c_int, pixelCenter);
+
+        r.DrawEllipse(centerX, centerY, pixelRadiusHeight, pixelRadiusWidth, color);
     }
 };
