@@ -1,3 +1,5 @@
+// world.zig - World coordinate system and transformations
+
 const r = @import("raylib.zig").c;
 
 const Utils = @import("utils.zig").Utils;
@@ -55,17 +57,33 @@ pub const World = struct {
         return collision;
     }
 
-    pub fn min(self: *const World) r.Vector2 {
+    pub inline fn minX(self: *const World) f32 {
+        return self.bounds.x;
+    }
+
+    pub inline fn minY(self: *const World) f32 {
+        return self.bounds.y;
+    }
+
+    pub inline fn min(self: *const World) r.Vector2 {
         return r.Vector2{
-            .x = self.bounds.x,
-            .y = self.bounds.y,
+            .x = self.minX(),
+            .y = self.minY(),
         };
     }
 
-    pub fn max(self: *const World) r.Vector2 {
+    pub inline fn maxX(self: *const World) f32 {
+        return self.bounds.x + self.bounds.width;
+    }
+
+    pub inline fn maxY(self: *const World) f32 {
+        return self.bounds.y + self.bounds.height;
+    }
+
+    pub inline fn max(self: *const World) r.Vector2 {
         return r.Vector2{
-            .x = self.bounds.x + self.bounds.width,
-            .y = self.bounds.y + self.bounds.height,
+            .x = self.maxX(),
+            .y = self.maxY(),
         };
     }
 
@@ -114,7 +132,7 @@ pub const World = struct {
 
         return r.Vector2{
             .x = (translatedX / self.bounds.width) * screenWidth,
-            .y = (translatedY / self.bounds.height) * screenHeight,
+            .y = screenHeight - ((translatedY / self.bounds.height) * screenHeight),
         };
     }
 
@@ -123,12 +141,11 @@ pub const World = struct {
         const screenHeight: f32 = @floatFromInt(r.GetScreenHeight());
 
         const worldX = (pixelPos.x / screenWidth) * self.bounds.width + self.bounds.x;
-        const worldY = (pixelPos.y / screenHeight) * self.bounds.height + self.bounds.y;
 
-        return r.Vector2{
-            .x = worldX,
-            .y = worldY,
-        };
+        // y = y_min + (1 - y_pix/H) * world_height
+        const worldY = self.bounds.y + (1.0 - (pixelPos.y / screenHeight)) * self.bounds.height;
+
+        return r.Vector2{ .x = worldX, .y = worldY };
     }
 
     pub fn vectorFromWorldToPixels(self: *const World, worldVec: r.Vector2) r.Vector2 {
@@ -188,11 +205,9 @@ pub const World = struct {
         const pixelRadiusWidth = self.distanceFromWorldToPixel(radius, true);
         const pixelRadiusHeight = self.distanceFromWorldToPixel(radius, false);
 
-        Utils.println("Pixels Center: {any}, radius: ({d}, {d})", .{ pixelCenter, pixelRadiusWidth, pixelRadiusHeight });
-
         const centerX = World.vectorGetX(c_int, pixelCenter);
         const centerY = World.vectorGetY(c_int, pixelCenter);
 
-        r.DrawEllipse(centerX, centerY, pixelRadiusHeight, pixelRadiusWidth, color);
+        r.DrawEllipse(centerX, centerY, pixelRadiusWidth, pixelRadiusHeight, color);
     }
 };

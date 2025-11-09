@@ -1,3 +1,5 @@
+// math.zig - Mathematical systems and integration methods
+
 const Utils = @import("utils.zig").Utils;
 
 pub fn SystemType(
@@ -35,22 +37,57 @@ pub fn SystemType(
         }
 
         /// Integrate the system forward by dt using the RK4 method.
-        pub fn integrate(self: *@This(), dt: scalarType) void {
+        pub fn integrateRK4(self: *@This(), dt: scalarType) void {
             const two = comptime @as(scalarType, 2);
             const six = comptime @as(scalarType, 6);
 
             const dt_2 = dt / two;
 
-            const k1: valueType = self.func(self.t, self.x); // f(t_n, x_n)
-            const k2: valueType = self.func(self.t + dt_2, addValue(self.x, valueScale(k1, dt_2))); // f(t_n + dt/2, x_n + dt/2 * k1)
-            const k3: valueType = self.func(self.t + dt_2, addValue(self.x, valueScale(k2, dt_2))); // f(t_n + dt/2, x_n + dt/2 * k2)
-            const k4: valueType = self.func(self.t + dt, addValue(self.x, valueScale(k3, dt))); // f(t_n + dt, x_n + dt * k3)
+            const k1: valueType = self.func(
+                self.t,
+                self.x,
+            ); // f(t_n, x_n)
+            const k2: valueType = self.func(
+                self.t + dt_2,
+                addValue(self.x, valueScale(k1, dt_2)),
+            ); // f(t_n + dt/2, x_n + dt/2 * k1)
+            const k3: valueType = self.func(
+                self.t + dt_2,
+                addValue(self.x, valueScale(k2, dt_2)),
+            ); // f(t_n + dt/2, x_n + dt/2 * k2)
+            const k4: valueType = self.func(
+                self.t + dt,
+                addValue(self.x, valueScale(k3, dt)),
+            ); // f(t_n + dt, x_n + dt * k3)
 
             self.x = addValue(self.x, valueScale(addValue(
                 addValue(k1, valueScale(k2, two)),
                 addValue(valueScale(k3, two), k4),
             ), dt / six)); // x_{n+1} = x_n + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
 
+            self.t += dt; // t_{n+1} = t_n + dt
+        }
+
+        pub fn integrateSimple(self: *@This(), dt: scalarType) void {
+            const dx = self.func(self.t, self.x);
+            self.x = addValue(self.x, valueScale(dx, dt));
+            self.t += dt;
+        }
+
+        pub fn integrateEuler(self: *@This(), dt: scalarType) void {
+            const two = comptime @as(scalarType, 2);
+            const dt_2 = dt / two;
+
+            const k1: valueType = self.func(
+                self.t,
+                self.x,
+            ); // f(t_n, x_n)
+            const k2: valueType = self.func(
+                self.t + dt_2,
+                addValue(self.x, valueScale(k1, dt_2)),
+            ); // f(t_n + dt/2, x_n + dt/2 * k1)
+
+            self.x = addValue(self.x, valueScale(k2, dt)); // x_{n+1} = x_n + dt * k2
             self.t += dt; // t_{n+1} = t_n + dt
         }
     };
@@ -88,7 +125,7 @@ test "gravity velocity" {
 
     var time: f64 = 0;
     while (time < 2.0) : (time += DT) {
-        sys.integrate(DT);
+        sys.integrateRK4(DT);
     }
 
     Utils.print("Final time: {d}\n", .{sys.t});
@@ -153,7 +190,7 @@ test "gravity position + velocity" {
 
     var time: f64 = 0;
     while (time < 2.0) : (time += DT) {
-        sys.integrate(DT);
+        sys.integrateRK4(DT);
     }
 
     Utils.print("Final time: {d}\n", .{sys.t});

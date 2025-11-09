@@ -1,3 +1,5 @@
+// state.zig - Application state management for particle simulation
+
 const std = @import("std");
 const r = @import("raylib.zig").c;
 const particleZig = @import("particle.zig");
@@ -15,7 +17,7 @@ pub const State = struct {
     lastTickTime: f64 = 0,
 
     // Simulation parameters
-    gravity: r.Vector2 = r.Vector2{ .x = 0, .y = 9.81 },
+    gravity: r.Vector2 = r.Vector2{ .x = 0, .y = -9.81 },
 
     // Control flags
     shouldRenderVelocity: bool = false,

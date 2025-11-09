@@ -1,3 +1,5 @@
+// utils.zig - Utility functions and helpers
+
 const std = @import("std");
 
 pub const Utils = struct {

@@ -1,3 +1,5 @@
+// rand.zig - Random number generation utilities with pseudo stateless PRNG
+
 const std = @import("std");
 const r = @import("raylib.zig").c;
 

@@ -1,3 +1,5 @@
+// particle.zig - Particle simulation module
+
 const std = @import("std");
 const r = @import("raylib.zig").c;
 const math = @import("math.zig");
@@ -213,8 +215,6 @@ pub fn Particle(comptime config: ParticleConfig) type {
         }
 
         pub fn render(self: *const Self, shouldRenderVelocity: bool) void {
-            Utils.println("Rendering particle ({d}s) {any}", .{ self.system.t, self.system.x });
-
             const color = if (self.selected) Self.selectedColor else Self.unselectedColor;
 
             self.world.drawCircle(self.system.x.pos, self.system.info.radius, color);
@@ -234,7 +234,31 @@ pub fn Particle(comptime config: ParticleConfig) type {
             }
         }
 
+        /// Set the position of the particle in screen space
+        ///
+        /// # Arguments
+        ///
+        /// - `screenPos`: The position in screen pixels
+        pub fn setPosition(self: *Self, screenPos: r.Vector2) void {
+            const worldPos = self.world.locationFromPixelsToWorld(screenPos);
+            self.system.x.pos = worldPos;
+        }
+
+        /// Set the velocity of the particle in screen space
+        ///
+        /// # Arguments
+        ///
+        /// - `screenVel`: The velocity in pixels per second
+        pub fn setVelocity(self: *Self, screenVel: r.Vector2) void {
+            const worldVel = self.world.vectorFromPixelsToWorld(screenVel);
+            self.system.x.velocity = worldVel;
+        }
+
         /// Handle collision with another particle or boundary
+        ///
+        /// # Arguments
+        ///
+        /// - `col`: The type of collision that occurred
         pub fn handleCollision(self: *Self, col: Self.ParticleCollisionType) void {
             switch (col) {
                 .none => {},
@@ -253,14 +277,26 @@ pub fn Particle(comptime config: ParticleConfig) type {
             }
         }
 
-        pub fn tick(self: *Self, dt: f32, tickTime: *f64) Self.ParticleCollisionType {
-            const start = r.GetTime();
-            defer {
-                const end = r.GetTime();
-                tickTime.* += (end - start);
+        /// Update the particle's state by a time step `dt`
+        ///
+        /// # Arguments
+        ///
+        /// - `dt`: Time step in seconds
+        /// - `tickTime`: Optional pointer to accumulate tick time for performance measurement
+        ///
+        /// # Returns
+        ///
+        /// A ParticleCollisionType indicating any collision that occurred
+        pub fn tick(self: *Self, dt: f32, tickTime: ?*f64) Self.ParticleCollisionType {
+            if (tickTime) |tickTimePtr| {
+                const start = r.GetTime();
+                defer {
+                    const end = r.GetTime();
+                    tickTimePtr.* += (end - start);
+                }
             }
 
-            self.system.integrate(dt);
+            self.system.integrateRK4(dt);
 
             const collision = self.clampPosition();
 
